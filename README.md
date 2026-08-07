@@ -6,4 +6,6 @@
 - Plus Icon by EncoderXSolutions from Pngtree:
   https://de.pngtree.com/freepng/vector-plus-icon_3989579.html
 
+- Arrows are selfmade in Paint
+
 Usage is subject to the license terms of the respective providers.
