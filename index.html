@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>To-Do Liste</title>
+    <link href="styles/style.css" rel="stylesheet">
+    <script defer src="scripts/script.js"></script>
+</head>
+<body style="background-color: white;">
+    <h1>To-Do's für <span id="time"></span></h1>
+    <div class="ToDo">
+
+        <button class="previoustodo" onclick="previousTodo()" title="To-Dos für den vorherigen Tag"><img src="images/pfeillinks.png" alt="Tag-" width="10px" height="10px"></img></button>
+        <button class="weekback" onclick="weekBack()" title="7 Tage zurück">-7d</button>
+        <input class="text" id="task" title="To-Do hier eingeben" style="color: rgb(50, 50, 50);" placeholder=" neues To-Do">
+        <textarea id="caption" placeholder="Beschreibung"></textarea>
+        <select id="priority" title="Priorität ändern">
+            <option title="Nicht wichtig (GRÜN)" value="green" style="color: #00b400;">Nicht wichtig</option>
+            <option title="Mittel wichtig (ORANGE)"value="orange" style="color: #ff9100;">Mittel wichtig</option>
+            <option title="Sehr wichtig (ROT)" value="red" style="color: #d80000;">Sehr Wichtig</option>
+        </select>
+        <label for="fällig">Fällig am</label>
+        <input type="date" class="fällig" id="fällig" title="Fällig am...">
+        <label for="geplant"> Geplant am</label>
+        <input type="date" class="geplant" id="geplant" title="Geplant am...">
+        <button onclick="addTask()" class="add2" title="Hinzufügen"><div class="add"><img src="images/add.png" alt="+" width="10px" height="10px"></div></img></button>
+        <button class="todaystodo" onclick="todaysTodo()" title="Springe zu deinen Heutigen ToDos">Heute</button>
+        <button class="weeknext" onclick="weekNext()" title="7 Tage vor">+7d</button>
+        <button class="nexttodo" onclick="nextTodo()" title="To-Dos für den nächsten Tag"><img src="images/pfeilrechts.png" alt="Tag+" width="10px" height="10px"></button>
+        <ul id="list"></ul>
+        <button onclick="clearAll()" class="clear" title="alle ToDo's Löschen"><img src="images/Müll.png" alt="🚮" width="32px" height="30px"></img></button>
+        
+    </div>
+</body>
+</html>
