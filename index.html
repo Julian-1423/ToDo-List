@@ -1,95 +1,1516 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>To-Do Liste</title>
-    <link href="styles/style.css" rel="stylesheet">
-    <script defer src="scripts/script.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="To-Do Liste mit Tagesplanung, Prioritäten und Fälligkeitsdaten – läuft komplett offline im Browser.">
+<title>To-Do Liste</title>
+<style>
+/* =========================================================
+   Design-Tokens
+   ========================================================= */
+:root {
+  --page-1: #1b2a8a;
+  --page-2: #0a8f57;
+
+  --surface: #ffffff;
+  --surface-2: #f4f6fa;
+  --surface-3: #eceff5;
+  --border: #dde2ec;
+  --border-strong: #c6cddb;
+
+  --text: #161a22;
+  --muted: #667085;
+  --faint: #8b93a5;
+
+  --accent: #2f5bd7;
+  --accent-ink: #ffffff;
+  --accent-soft: #e8edfd;
+
+  --red: #d92d20;
+  --red-soft: #fde8e6;
+  --orange: #e07000;
+  --orange-soft: #fdf0dd;
+  --green: #12924f;
+  --green-soft: #e3f6ec;
+
+  --shadow-card: 0 24px 60px -24px rgba(6, 16, 45, .45), 0 2px 8px rgba(6, 16, 45, .08);
+  --shadow-soft: 0 1px 2px rgba(16, 24, 40, .06);
+  --radius: 14px;
+  --radius-sm: 10px;
+  --ring: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --page-1: #0a1130;
+    --page-2: #04281d;
+
+    --surface: #141924;
+    --surface-2: #1b212e;
+    --surface-3: #222938;
+    --border: #2a3242;
+    --border-strong: #3a445a;
+
+    --text: #e9ecf3;
+    --muted: #9aa4b8;
+    --faint: #7d879b;
+
+    --accent: #7ea2ff;
+    --accent-ink: #0d1424;
+    --accent-soft: #1e2942;
+
+    --red: #ff7b6e;
+    --red-soft: #3a1f1d;
+    --orange: #ffab4d;
+    --orange-soft: #3a2a15;
+    --green: #56d194;
+    --green-soft: #12301f;
+
+    --shadow-card: 0 28px 70px -28px rgba(0, 0, 0, .8);
+    --shadow-soft: 0 1px 2px rgba(0, 0, 0, .3);
+  }
+}
+
+:root[data-theme="dark"] {
+  --page-1: #0a1130;
+  --page-2: #04281d;
+
+  --surface: #141924;
+  --surface-2: #1b212e;
+  --surface-3: #222938;
+  --border: #2a3242;
+  --border-strong: #3a445a;
+
+  --text: #e9ecf3;
+  --muted: #9aa4b8;
+  --faint: #7d879b;
+
+  --accent: #7ea2ff;
+  --accent-ink: #0d1424;
+  --accent-soft: #1e2942;
+
+  --red: #ff7b6e;
+  --red-soft: #3a1f1d;
+  --orange: #ffab4d;
+  --orange-soft: #3a2a15;
+  --green: #56d194;
+  --green-soft: #12301f;
+
+  --shadow-card: 0 28px 70px -28px rgba(0, 0, 0, .8);
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, .3);
+}
+
+/* =========================================================
+   Grundlagen
+   ========================================================= */
+*, *::before, *::after { box-sizing: border-box; }
+
+html { min-height: 100%; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  padding: clamp(16px, 4vw, 48px) 16px;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--text);
+  background-color: var(--page-1);
+  background-image:
+    radial-gradient(1200px 600px at 12% -10%, color-mix(in srgb, var(--page-2) 55%, transparent), transparent 60%),
+    linear-gradient(145deg, var(--page-1), var(--page-2));
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, p, ul { margin: 0; }
+ul { list-style: none; padding: 0; }
+
+button, input, select, textarea { font: inherit; color: inherit; }
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Das Icon-Sprite darf keinen Platz belegen. Ein hidden-Attribut genügt hier
+   nicht: die UA-Regel [hidden]{display:none} greift nur im HTML-Namespace. */
+.sprite { display: none; }
+
+.icon { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.icon-sm { width: 15px; height: 15px; }
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
+}
+
+.muted { color: var(--muted); }
+
+/* =========================================================
+   Karte
+   ========================================================= */
+.app {
+  width: min(760px, 100%);
+  margin: 0 auto;
+  background: var(--surface);
+  border-radius: 22px;
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 22px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, var(--surface-2), var(--surface));
+}
+
+.brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 40px; height: 40px;
+  flex: none;
+  border-radius: 12px;
+  color: var(--accent-ink);
+  background: linear-gradient(140deg, var(--accent), color-mix(in srgb, var(--accent) 55%, var(--green)));
+  box-shadow: var(--shadow-soft);
+}
+.brand-mark .icon { width: 22px; height: 22px; stroke-width: 2.5; }
+
+.brand h1 { font-size: 20px; font-weight: 650; letter-spacing: -.01em; }
+.brand p { font-size: 13px; color: var(--muted); }
+
+.topbar-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+/* =========================================================
+   Buttons
+   ========================================================= */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 8px 13px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 550;
+  cursor: pointer;
+  transition: background-color .15s, border-color .15s, transform .05s;
+}
+.btn:hover { background: var(--surface-2); border-color: var(--faint); }
+.btn:active { transform: translateY(1px); }
+
+.btn-primary {
+  border-color: transparent;
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: var(--shadow-soft);
+}
+.btn-primary:hover { background: color-mix(in srgb, var(--accent) 85%, #000); border-color: transparent; }
+
+.btn-ghost { border-color: transparent; background: transparent; color: var(--muted); }
+.btn-ghost:hover { background: var(--surface-2); color: var(--text); }
+
+.btn-icon { padding: 8px; border-radius: 10px; }
+
+.btn-danger { color: var(--red); border-color: color-mix(in srgb, var(--red) 35%, var(--border)); background: transparent; }
+.btn-danger:hover { background: var(--red-soft); border-color: var(--red); }
+
+/* =========================================================
+   Wochenleiste
+   ========================================================= */
+.week {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.week-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.day {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 7px 2px 9px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  cursor: pointer;
+  transition: background-color .15s, color .15s, border-color .15s;
+}
+.day:hover { background: var(--surface-2); }
+
+.day-name { font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--faint); }
+.day-num { font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.day-dots { display: flex; gap: 3px; height: 5px; margin-top: 2px; }
+.day-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--faint); }
+.day-dot.red { background: var(--red); }
+.day-dot.orange { background: var(--orange); }
+.day-dot.green { background: var(--green); }
+
+.day.is-today .day-num { color: var(--accent); }
+.day.is-today .day-name { color: var(--accent); }
+.day.is-weekend .day-num { color: var(--faint); }
+
+.day.is-selected {
+  background: var(--accent);
+  border-color: transparent;
+}
+.day.is-selected .day-name,
+.day.is-selected .day-num { color: var(--accent-ink); }
+.day.is-selected .day-dot { background: color-mix(in srgb, var(--accent-ink) 75%, transparent); }
+
+/* =========================================================
+   Tages-Kopf
+   ========================================================= */
+.dayhead {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 18px 22px 12px;
+}
+
+.dayhead h2 {
+  font-size: clamp(19px, 3.2vw, 24px);
+  font-weight: 650;
+  letter-spacing: -.015em;
+}
+
+.dayhead .sub { font-size: 13.5px; color: var(--muted); margin-top: 2px; }
+
+.pill-today {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 650;
+  vertical-align: 3px;
+}
+
+.daynav { margin-left: auto; display: flex; gap: 6px; }
+
+.progress-track {
+  height: 5px;
+  margin: 6px 22px 0;
+  border-radius: 999px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+.progress-bar {
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), var(--green));
+  transition: width .35s cubic-bezier(.2, .8, .3, 1);
+}
+
+/* =========================================================
+   Eingabe
+   ========================================================= */
+.composer { padding: 18px 22px 4px; }
+
+.composer-main { display: flex; gap: 8px; }
+
+.field {
+  width: 100%;
+  padding: 11px 13px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-size: 15px;
+  transition: border-color .15s, box-shadow .15s;
+}
+.field::placeholder { color: var(--faint); }
+.field:focus { outline: none; border-color: var(--accent); box-shadow: var(--ring); }
+
+.composer-main .field { font-size: 16px; }
+.composer-main .btn-primary { padding-inline: 16px; white-space: nowrap; }
+
+.composer-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.seg {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+}
+.seg button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 550;
+  cursor: pointer;
+  transition: background-color .15s, color .15s;
+}
+.seg button:hover { color: var(--text); }
+.seg button[aria-checked="true"], .seg button[aria-selected="true"] {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-soft);
+}
+
+.dot { width: 9px; height: 9px; border-radius: 50%; background: currentColor; flex: none; }
+.dot.red { color: var(--red); }
+.dot.orange { color: var(--orange); }
+.dot.green { color: var(--green); }
+
+.datefield {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+  font-size: 13px;
+  color: var(--muted);
+}
+.datefield input {
+  border: 0;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 550;
+  color: var(--text);
+  cursor: pointer;
+  padding: 0;
+}
+.datefield input:focus { outline: none; }
+.datefield:focus-within { border-color: var(--accent); box-shadow: var(--ring); }
+
+.composer-extra { margin-top: 10px; }
+.composer-extra[hidden] { display: none; }
+.composer-extra textarea { min-height: 76px; resize: vertical; }
+
+.error {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 10px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--red-soft);
+  color: var(--red);
+  font-size: 14px;
+  font-weight: 550;
+}
+.error[hidden] { display: none; }
+
+/* =========================================================
+   Listenkopf
+   ========================================================= */
+.listhead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 22px 10px;
+}
+.listhead .count { margin-left: auto; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* =========================================================
+   Aufgaben
+   ========================================================= */
+.list { padding: 0 22px; display: flex; flex-direction: column; gap: 8px; }
+
+.item {
+  position: relative;
+  padding: 12px 14px 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  transition: border-color .15s, box-shadow .15s, opacity .2s;
+}
+.item::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 10px; bottom: 10px;
+  width: 4px;
+  border-radius: 0 4px 4px 0;
+  background: var(--faint);
+}
+.item.p-red::before { background: var(--red); }
+.item.p-orange::before { background: var(--orange); }
+.item.p-green::before { background: var(--green); }
+
+.item:hover { border-color: var(--border-strong); box-shadow: var(--shadow-soft); }
+.item.is-new { animation: pop .3s cubic-bezier(.2, .9, .3, 1); }
+.item.is-done { background: var(--surface-2); }
+.item.is-done .item-text { color: var(--muted); text-decoration: line-through; text-decoration-thickness: 1.5px; }
+
+@keyframes pop {
+  from { opacity: 0; transform: translateY(-6px) scale(.985); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .item.is-new { animation: none; }
+  .progress-bar { transition: none; }
+}
+
+.item-row { display: flex; align-items: flex-start; gap: 11px; }
+
+.check {
+  appearance: none;
+  flex: none;
+  width: 21px; height: 21px;
+  margin: 1px 0 0;
+  border: 2px solid var(--border-strong);
+  border-radius: 7px;
+  background: var(--surface);
+  cursor: pointer;
+  transition: background-color .15s, border-color .15s;
+}
+.check:hover { border-color: var(--accent); }
+.check:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
+  background-size: 15px;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.item-body { flex: 1; min-width: 0; }
+.item-text { font-size: 15.5px; font-weight: 550; overflow-wrap: anywhere; }
+
+.badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 550;
+  font-variant-numeric: tabular-nums;
+}
+.badge.overdue { background: var(--red-soft); color: var(--red); }
+.badge.soon { background: var(--orange-soft); color: var(--orange); }
+.badge.prio-red { background: var(--red-soft); color: var(--red); }
+.badge.prio-orange { background: var(--orange-soft); color: var(--orange); }
+.badge.prio-green { background: var(--green-soft); color: var(--green); }
+
+.item-actions { display: flex; gap: 2px; flex: none; }
+.item-actions .btn-icon { color: var(--faint); }
+.item-actions .btn-icon:hover { color: var(--text); background: var(--surface-3); }
+.item-actions .act-del:hover { color: var(--red); background: var(--red-soft); }
+
+@media (hover: hover) {
+  .item-actions { opacity: 0; transition: opacity .15s; }
+  .item:hover .item-actions,
+  .item:focus-within .item-actions { opacity: 1; }
+}
+
+.caption {
+  margin-top: 8px;
+  font-size: 14px;
+  color: var(--muted);
+}
+.caption summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  font-weight: 550;
+  color: var(--accent);
+  list-style: none;
+  font-size: 13px;
+}
+.caption summary::-webkit-details-marker { display: none; }
+.caption summary::before { content: "▸"; transition: transform .15s; display: inline-block; }
+.caption[open] summary::before { transform: rotate(90deg); }
+.caption p {
+  margin-top: 6px;
+  padding: 9px 11px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  color: var(--text);
+}
+
+/* Bearbeiten */
+.edit { display: flex; flex-direction: column; gap: 9px; }
+.edit-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.edit textarea { min-height: 64px; resize: vertical; }
+.edit-actions { margin-left: auto; display: flex; gap: 8px; }
+
+/* Leerzustand */
+.empty {
+  margin: 4px 22px 0;
+  padding: 34px 20px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  text-align: center;
+  color: var(--muted);
+}
+.empty[hidden] { display: none; }
+.empty .icon { width: 30px; height: 30px; color: var(--faint); margin-bottom: 8px; stroke-width: 1.6; }
+.empty strong { display: block; color: var(--text); font-weight: 600; margin-bottom: 3px; }
+.empty span { font-size: 14px; }
+
+/* Fuß */
+.foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 20px;
+  padding: 14px 22px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-2);
+  font-size: 13px;
+  color: var(--muted);
+}
+.foot .btn { margin-left: auto; }
+.hint { font-size: 12.5px; }
+kbd {
+  padding: 1px 5px;
+  border: 1px solid var(--border-strong);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: var(--surface);
+  font-family: inherit;
+  font-size: 11.5px;
+  color: var(--text);
+}
+
+/* Toast */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  max-width: calc(100vw - 32px);
+  padding: 11px 12px 11px 16px;
+  border-radius: 999px;
+  background: #11151f;
+  color: #f4f6fb;
+  font-size: 14px;
+  box-shadow: 0 16px 40px -12px rgba(0, 0, 0, .6);
+  animation: rise .22s ease-out;
+  z-index: 20;
+}
+.toast[hidden] { display: none; }
+.toast button {
+  border: 0;
+  border-radius: 999px;
+  padding: 5px 12px;
+  background: rgba(255, 255, 255, .14);
+  color: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.toast button:hover { background: rgba(255, 255, 255, .24); }
+@keyframes rise { from { opacity: 0; transform: translate(-50%, 10px); } }
+
+/* Schmale Bildschirme */
+@media (max-width: 560px) {
+  body { padding: 0; }
+  .app { border-radius: 0; min-height: 100vh; box-shadow: none; }
+  .topbar, .week, .dayhead, .composer, .listhead, .foot { padding-inline: 14px; }
+  .list, .empty, .progress-track { margin-inline: 0; padding-inline: 14px; }
+  .progress-track { margin-inline: 14px; padding-inline: 0; }
+  .composer-main { flex-direction: column; }
+  .composer-main .btn-primary { width: 100%; }
+  .daynav { width: 100%; margin-left: 0; }
+  .daynav .btn { flex: 1; }
+  .dayhead { flex-wrap: wrap; }
+  .item-actions { opacity: 1; }
+}
+</style>
 </head>
 <body>
-    <main class="card">
-        <h1>To-Do&#39;s für <span id="time"></span></h1>
 
-        <section class="nav" aria-label="Tag wechseln">
-            <button type="button" id="prevDay" class="icon-btn" title="To-Dos für den vorherigen Tag">
-                <img src="images/pfeillinks.png" alt="" width="10" height="10">
-                <span class="sr-only">Vorheriger Tag</span>
-            </button>
-            <button type="button" id="weekBack" class="btn" title="7 Tage zurück">-7d</button>
-            <button type="button" id="today" class="btn" title="Springe zu deinen heutigen To-Dos">Heute</button>
-            <button type="button" id="weekNext" class="btn" title="7 Tage vor">+7d</button>
-            <button type="button" id="nextDay" class="icon-btn" title="To-Dos für den nächsten Tag">
-                <img src="images/pfeilrechts.png" alt="" width="10" height="10">
-                <span class="sr-only">Nächster Tag</span>
-            </button>
-        </section>
+<svg class="sprite" aria-hidden="true">
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2m-9 0 1 14h8l1-14"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></symbol>
+  <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4m8-4v4M3 11h18"/></symbol>
+  <symbol id="i-flag" viewBox="0 0 24 24"><path d="M4 22V4m0 0h13l-2 4 2 4H4"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v5m0 3h.01"/></symbol>
+  <symbol id="i-inbox" viewBox="0 0 24 24"><path d="M3 12h5l2 3h4l2-3h5"/><path d="M5 5h14l2 7v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5Z"/></symbol>
+</svg>
 
-        <form id="taskForm" class="form" novalidate>
-            <div class="row">
-                <label class="grow" for="task">
-                    <span class="sr-only">Neues To-Do</span>
-                    <input id="task" name="task" type="text" autocomplete="off"
-                           placeholder="Neues To-Do" title="To-Do hier eingeben" maxlength="200" required>
-                </label>
-                <label for="priority">Priorität</label>
-                <select id="priority" name="priority" title="Priorität ändern">
-                    <option value="green">Nicht wichtig</option>
-                    <option value="orange">Mittel wichtig</option>
-                    <option value="red">Sehr wichtig</option>
-                </select>
-            </div>
+<div class="app">
 
-            <div class="row">
-                <label class="grow" for="caption">
-                    <span class="sr-only">Beschreibung</span>
-                    <textarea id="caption" name="caption" rows="1" maxlength="1000"
-                              placeholder="Beschreibung (optional)"></textarea>
-                </label>
-            </div>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark"><svg class="icon"><use href="#i-check"/></svg></span>
+      <div>
+        <h1>To-Do Liste</h1>
+        <p id="brandSub">Dein Tagesplan</p>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <button type="button" class="btn" id="todayBtn">Heute</button>
+      <button type="button" class="btn btn-ghost btn-icon" id="themeBtn" title="Design wechseln">
+        <svg class="icon" id="themeIcon"><use href="#i-moon"/></svg>
+        <span class="sr-only">Helles oder dunkles Design</span>
+      </button>
+    </div>
+  </header>
 
-            <div class="row">
-                <label for="planned">Geplant am</label>
-                <input type="date" id="planned" name="planned" title="Geplant am ...">
-                <label for="due">Fällig am</label>
-                <input type="date" id="due" name="due" title="Fällig am ...">
-                <button type="submit" class="add" title="Hinzufügen">
-                    <img src="images/add.png" alt="" width="10" height="10">
-                    <span>Hinzufügen</span>
-                </button>
-            </div>
+  <nav class="week" aria-label="Woche">
+    <button type="button" class="btn btn-ghost btn-icon" id="prevWeek" title="Eine Woche zurück">
+      <svg class="icon"><use href="#i-left"/></svg><span class="sr-only">Woche zurück</span>
+    </button>
+    <div class="week-days" id="weekDays"></div>
+    <button type="button" class="btn btn-ghost btn-icon" id="nextWeek" title="Eine Woche vor">
+      <svg class="icon"><use href="#i-right"/></svg><span class="sr-only">Woche vor</span>
+    </button>
+  </nav>
 
-            <p id="error" class="error" role="alert" hidden></p>
-        </form>
+  <div class="dayhead">
+    <div>
+      <h2 id="dayTitle"></h2>
+      <p class="sub" id="daySub"></p>
+    </div>
+    <div class="daynav">
+      <button type="button" class="btn btn-icon" id="prevDay" title="Vorheriger Tag">
+        <svg class="icon"><use href="#i-left"/></svg><span class="sr-only">Vorheriger Tag</span>
+      </button>
+      <button type="button" class="btn btn-icon" id="nextDay" title="Nächster Tag">
+        <svg class="icon"><use href="#i-right"/></svg><span class="sr-only">Nächster Tag</span>
+      </button>
+    </div>
+  </div>
 
-        <p id="summary" class="summary" aria-live="polite"></p>
+  <div class="progress-track"><div class="progress-bar" id="progressBar"></div></div>
 
-        <ul id="list" class="list"></ul>
+  <form class="composer" id="taskForm" novalidate>
+    <div class="composer-main">
+      <label class="sr-only" for="task">Neues To-Do</label>
+      <input class="field" id="task" type="text" maxlength="200" autocomplete="off" placeholder="Was steht an?">
+      <button type="submit" class="btn btn-primary">
+        <svg class="icon icon-sm"><use href="#i-plus"/></svg>Hinzufügen
+      </button>
+    </div>
 
-        <p id="empty" class="empty" hidden>Für diesen Tag ist nichts geplant.</p>
+    <div class="composer-row">
+      <div class="seg" id="prioPicker" role="radiogroup" aria-label="Priorität">
+        <button type="button" role="radio" data-prio="green" aria-checked="true"><span class="dot green"></span>Niedrig</button>
+        <button type="button" role="radio" data-prio="orange" aria-checked="false"><span class="dot orange"></span>Mittel</button>
+        <button type="button" role="radio" data-prio="red" aria-checked="false"><span class="dot red"></span>Hoch</button>
+      </div>
 
-        <button type="button" id="clearAll" class="clear" title="Alle To-Dos löschen">
-            <img src="images/Müll.png" alt="" width="32" height="30">
-            <span class="sr-only">Alle To-Dos löschen</span>
+      <span class="datefield">
+        <svg class="icon icon-sm"><use href="#i-calendar"/></svg>
+        <label for="planned">Geplant</label>
+        <input type="date" id="planned">
+      </span>
+
+      <span class="datefield">
+        <svg class="icon icon-sm"><use href="#i-flag"/></svg>
+        <label for="due">Fällig</label>
+        <input type="date" id="due">
+      </span>
+
+      <button type="button" class="btn btn-ghost" id="descToggle" aria-expanded="false">+ Beschreibung</button>
+    </div>
+
+    <div class="composer-extra" id="descWrap" hidden>
+      <label class="sr-only" for="caption">Beschreibung</label>
+      <textarea class="field" id="caption" maxlength="1000" placeholder="Notizen, Details, Checkliste … (Strg + Enter speichert)"></textarea>
+    </div>
+
+    <p class="error" id="error" role="alert" hidden><svg class="icon icon-sm"><use href="#i-alert"/></svg><span id="errorText"></span></p>
+  </form>
+
+  <div class="listhead">
+    <div class="seg" id="filters" role="tablist" aria-label="Filter">
+      <button type="button" role="tab" data-filter="all" aria-selected="true">Alle</button>
+      <button type="button" role="tab" data-filter="open" aria-selected="false">Offen</button>
+      <button type="button" role="tab" data-filter="done" aria-selected="false">Erledigt</button>
+    </div>
+    <p class="count" id="summary" aria-live="polite"></p>
+  </div>
+
+  <ul class="list" id="list"></ul>
+
+  <div class="empty" id="empty" hidden>
+    <svg class="icon"><use href="#i-inbox"/></svg>
+    <strong id="emptyTitle">Für diesen Tag ist nichts geplant.</strong>
+    <span id="emptyText">Trag oben dein erstes To-Do ein.</span>
+  </div>
+
+  <footer class="foot">
+    <span class="hint"><kbd>N</kbd> neues To-Do · <kbd>Enter</kbd> speichern · <kbd>Esc</kbd> abbrechen</span>
+    <button type="button" class="btn btn-danger" id="clearAll">
+      <svg class="icon icon-sm"><use href="#i-trash"/></svg>Alle löschen
+    </button>
+  </footer>
+</div>
+
+<div class="toast" id="toast" hidden>
+  <span id="toastMsg"></span>
+  <button type="button" id="undoBtn">Rückgängig</button>
+</div>
+
+<template id="itemTpl">
+  <li class="item">
+    <div class="item-row">
+      <input type="checkbox" class="check js-done">
+      <div class="item-body">
+        <div class="item-text js-text"></div>
+        <div class="badges js-badges"></div>
+        <details class="caption js-caption" hidden>
+          <summary>Beschreibung</summary>
+          <p class="js-caption-text"></p>
+        </details>
+      </div>
+      <div class="item-actions">
+        <button type="button" class="btn btn-ghost btn-icon js-edit" title="Bearbeiten">
+          <svg class="icon icon-sm"><use href="#i-pencil"/></svg><span class="sr-only">Bearbeiten</span>
         </button>
-    </main>
+        <button type="button" class="btn btn-ghost btn-icon act-del js-del" title="Löschen">
+          <svg class="icon icon-sm"><use href="#i-trash"/></svg><span class="sr-only">Löschen</span>
+        </button>
+      </div>
+    </div>
+  </li>
+</template>
 
-    <template id="taskTemplate">
-        <li class="item">
-            <div class="item-main">
-                <input type="checkbox" class="item-done" title="Erledigt">
-                <span class="item-text"></span>
-                <button type="button" class="del" title="To-Do löschen">✖️</button>
-            </div>
-            <div class="item-meta">
-                <span class="meta-planned"></span>
-                <span class="meta-due"></span>
-            </div>
-            <details class="item-caption" hidden>
-                <summary>Beschreibung</summary>
-                <p class="caption-text"></p>
-            </details>
-        </li>
-    </template>
+<template id="editTpl">
+  <li class="item">
+    <form class="edit js-form">
+      <input class="field js-e-text" type="text" maxlength="200" placeholder="To-Do">
+      <textarea class="field js-e-caption" maxlength="1000" placeholder="Beschreibung (optional)"></textarea>
+      <div class="edit-row">
+        <div class="seg js-e-prio" role="radiogroup" aria-label="Priorität">
+          <button type="button" role="radio" data-prio="green"><span class="dot green"></span>Niedrig</button>
+          <button type="button" role="radio" data-prio="orange"><span class="dot orange"></span>Mittel</button>
+          <button type="button" role="radio" data-prio="red"><span class="dot red"></span>Hoch</button>
+        </div>
+        <span class="datefield"><svg class="icon icon-sm"><use href="#i-calendar"/></svg>Geplant<input type="date" class="js-e-planned"></span>
+        <span class="datefield"><svg class="icon icon-sm"><use href="#i-flag"/></svg>Fällig<input type="date" class="js-e-due"></span>
+      </div>
+      <div class="edit-row">
+        <div class="edit-actions">
+          <button type="button" class="btn js-cancel">Abbrechen</button>
+          <button type="submit" class="btn btn-primary">Speichern</button>
+        </div>
+      </div>
+    </form>
+  </li>
+</template>
+
+<script>
+"use strict";
+
+/* =========================================================
+   Konstanten und Zustand
+   ========================================================= */
+const KEY_TASKS = "tasks";
+const KEY_THEME = "todo-theme";
+const PRIO = { red: { rank: 1, label: "Hoch" }, orange: { rank: 2, label: "Mittel" }, green: { rank: 3, label: "Niedrig" } };
+const DAY_MS = 86400000;
+
+const fmtLong = new Intl.DateTimeFormat("de-DE", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+const fmtShort = new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
+const fmtWeekday = new Intl.DateTimeFormat("de-DE", { weekday: "short" });
+
+let tasks = loadTasks();
+let selected = startOfDay(new Date());
+let filter = "all";
+let newPriority = "green";
+let editingId = null;
+let flashId = null;
+let openCaptions = new Set();
+let undoState = null;
+let toastTimer = null;
+
+const $ = id => document.getElementById(id);
+const el = {
+  weekDays: $("weekDays"), dayTitle: $("dayTitle"), daySub: $("daySub"), brandSub: $("brandSub"),
+  progressBar: $("progressBar"), form: $("taskForm"), task: $("task"), caption: $("caption"),
+  descWrap: $("descWrap"), descToggle: $("descToggle"), planned: $("planned"), due: $("due"),
+  prioPicker: $("prioPicker"), error: $("error"), errorText: $("errorText"), filters: $("filters"),
+  summary: $("summary"), list: $("list"), empty: $("empty"), emptyTitle: $("emptyTitle"),
+  emptyText: $("emptyText"), toast: $("toast"), toastMsg: $("toastMsg"), undoBtn: $("undoBtn"),
+  themeIcon: $("themeIcon"), itemTpl: $("itemTpl"), editTpl: $("editTpl")
+};
+
+/* =========================================================
+   Speicher
+   ========================================================= */
+function loadTasks() {
+  let raw = null;
+  try {
+    raw = JSON.parse(localStorage.getItem(KEY_TASKS));
+  } catch (err) {
+    console.warn("Gespeicherte To-Dos sind unlesbar:", err);
+  }
+  if (!Array.isArray(raw)) return [];
+
+  // Migration: aeltere Versionen speicherten "fällig"/"geplant" und hatten keine id.
+  return raw.filter(t => t && typeof t.text === "string").map(t => ({
+    id: t.id || uid(),
+    text: t.text,
+    caption: typeof t.caption === "string" ? t.caption : "",
+    done: Boolean(t.done),
+    priority: PRIO[t.priority] ? t.priority : "green",
+    planned: t.planned || t["geplant"] || "",
+    due: t.due || t["fällig"] || "",
+    created: t.created || Date.now()
+  }));
+}
+
+function save() {
+  try {
+    localStorage.setItem(KEY_TASKS, JSON.stringify(tasks));
+  } catch (err) {
+    showError("Speichern fehlgeschlagen – der Browser-Speicher ist voll oder blockiert.");
+    console.error(err);
+  }
+}
+
+function uid() {
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return "t" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+/* =========================================================
+   Datum
+   ========================================================= */
+function startOfDay(date) {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+// Nicht toISOString() verwenden: das rechnet nach UTC um und liefert
+// oestlich von Greenwich den Vortag.
+function key(date) {
+  return date.getFullYear() + "-" +
+    String(date.getMonth() + 1).padStart(2, "0") + "-" +
+    String(date.getDate()).padStart(2, "0");
+}
+
+function parseKey(value) {
+  const [y, m, d] = value.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function fmt(value) {
+  return value ? fmtShort.format(parseKey(value)) : "–";
+}
+
+function dayOffset(value) {
+  return Math.round((parseKey(value) - startOfDay(new Date())) / DAY_MS);
+}
+
+function relativeLabel(offset) {
+  if (offset === 0) return "heute";
+  if (offset === 1) return "morgen";
+  if (offset === -1) return "gestern";
+  if (offset > 1) return `in ${offset} Tagen`;
+  return `vor ${Math.abs(offset)} Tagen`;
+}
+
+function startOfWeek(date) {
+  const d = startOfDay(date);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); // Woche beginnt Montag
+  return d;
+}
+
+function shiftDay(amount) {
+  selected = startOfDay(new Date(selected.getTime() + amount * DAY_MS));
+  el.planned.value = key(selected);
+  syncDue();
+  render();
+}
+
+/* =========================================================
+   Auswahl und Sortierung
+   ========================================================= */
+function tasksOf(dateKey) {
+  return tasks.filter(t => (t.planned || dateKey) === dateKey);
+}
+
+function sortTasks(list) {
+  return list.slice().sort((a, b) =>
+    Number(a.done) - Number(b.done) ||
+    PRIO[a.priority].rank - PRIO[b.priority].rank ||
+    (a.due || "9999-12-31").localeCompare(b.due || "9999-12-31") ||
+    a.created - b.created
+  );
+}
+
+function dueState(task) {
+  if (!task.due || task.done) return "";
+  const offset = dayOffset(task.due);
+  if (offset < 0) return "overdue";
+  if (offset === 0) return "today";
+  if (offset === 1) return "soon";
+  return "";
+}
+
+/* =========================================================
+   Rendern
+   ========================================================= */
+function render() {
+  renderWeek();
+  renderHead();
+  renderList();
+}
+
+function renderWeek() {
+  const monday = startOfWeek(selected);
+  const todayKey = key(startOfDay(new Date()));
+  const frag = document.createDocumentFragment();
+
+  for (let i = 0; i < 7; i++) {
+    const date = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i);
+    const k = key(date);
+    const open = tasksOf(k).filter(t => !t.done);
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "day";
+    btn.dataset.date = k;
+    if (k === key(selected)) btn.classList.add("is-selected");
+    if (k === todayKey) btn.classList.add("is-today");
+    if (i > 4) btn.classList.add("is-weekend");
+    btn.setAttribute("aria-pressed", String(k === key(selected)));
+    btn.title = `${fmtLong.format(date)} – ${open.length} offen`;
+
+    const name = document.createElement("span");
+    name.className = "day-name";
+    name.textContent = fmtWeekday.format(date).replace(".", "");
+
+    const num = document.createElement("span");
+    num.className = "day-num";
+    num.textContent = date.getDate();
+
+    const dots = document.createElement("span");
+    dots.className = "day-dots";
+    const top = sortTasks(open).slice(0, 3);
+    for (const t of top) {
+      const dot = document.createElement("span");
+      dot.className = "day-dot " + t.priority;
+      dots.appendChild(dot);
+    }
+
+    btn.append(name, num, dots);
+    frag.appendChild(btn);
+  }
+
+  el.weekDays.replaceChildren(frag);
+}
+
+function renderHead() {
+  const offset = dayOffset(key(selected));
+  el.dayTitle.textContent = fmtLong.format(selected);
+  if (offset === 0) {
+    const pill = document.createElement("span");
+    pill.className = "pill-today";
+    pill.textContent = "Heute";
+    el.dayTitle.appendChild(pill);
+  }
+
+  const dayTasks = tasksOf(key(selected));
+  const open = dayTasks.filter(t => !t.done).length;
+  const overdue = dayTasks.filter(t => dueState(t) === "overdue").length;
+
+  let sub = dayTasks.length === 0
+    ? "Noch nichts geplant"
+    : `${dayTasks.length - open} von ${dayTasks.length} erledigt`;
+  if (offset !== 0) sub += ` · ${relativeLabel(offset)}`;
+  if (overdue > 0) sub += ` · ${overdue} überfällig`;
+  el.daySub.textContent = sub;
+
+  el.progressBar.style.width = dayTasks.length
+    ? Math.round(((dayTasks.length - open) / dayTasks.length) * 100) + "%"
+    : "0%";
+
+  const allOpen = tasks.filter(t => !t.done).length;
+  el.brandSub.textContent = tasks.length
+    ? `${allOpen} offen · ${tasks.length} gesamt`
+    : "Dein Tagesplan";
+}
+
+function renderList() {
+  const dayTasks = sortTasks(tasksOf(key(selected)));
+  const shown = dayTasks.filter(t => filter === "all" || (filter === "open" ? !t.done : t.done));
+  const frag = document.createDocumentFragment();
+
+  for (const task of shown) {
+    frag.appendChild(task.id === editingId ? buildEdit(task) : buildItem(task));
+  }
+  el.list.replaceChildren(frag);
+  flashId = null;
+
+  const open = dayTasks.filter(t => !t.done).length;
+  el.summary.textContent = dayTasks.length ? `${open} offen · ${dayTasks.length - open} erledigt` : "";
+
+  el.empty.hidden = shown.length > 0;
+  if (!shown.length) {
+    if (dayTasks.length && filter === "open") {
+      el.emptyTitle.textContent = "Alles erledigt.";
+      el.emptyText.textContent = "Für diesen Tag steht nichts mehr offen.";
+    } else if (dayTasks.length && filter === "done") {
+      el.emptyTitle.textContent = "Noch nichts abgehakt.";
+      el.emptyText.textContent = "Hier landen erledigte To-Dos.";
+    } else {
+      el.emptyTitle.textContent = "Für diesen Tag ist nichts geplant.";
+      el.emptyText.textContent = "Trag oben dein erstes To-Do ein.";
+    }
+  }
+}
+
+function buildItem(task) {
+  const node = el.itemTpl.content.firstElementChild.cloneNode(true);
+  node.dataset.id = task.id;
+  node.classList.add("p-" + task.priority);
+  if (task.done) node.classList.add("is-done");
+  if (task.id === flashId) node.classList.add("is-new");
+
+  const check = node.querySelector(".js-done");
+  check.checked = task.done;
+  check.setAttribute("aria-label", "Erledigt: " + task.text);
+
+  // textContent statt innerHTML – Eingaben werden nie als HTML ausgewertet.
+  node.querySelector(".js-text").textContent = task.text;
+
+  const badges = node.querySelector(".js-badges");
+  badges.appendChild(makeBadge(PRIO[task.priority].label, "prio-" + task.priority, "#i-flag"));
+
+  if (task.due) {
+    const state = dueState(task);
+    let label = "Fällig " + fmt(task.due);
+    if (state === "overdue") label = `Überfällig seit ${fmt(task.due)}`;
+    else if (state === "today") label = "Heute fällig";
+    else if (state === "soon") label = "Morgen fällig";
+    badges.appendChild(makeBadge(label, state === "overdue" ? "overdue" : (state ? "soon" : ""), "#i-calendar"));
+  }
+
+  if (!task.planned) badges.appendChild(makeBadge("Ohne Datum", "", "#i-calendar"));
+
+  if (task.caption) {
+    const details = node.querySelector(".js-caption");
+    details.hidden = false;
+    details.open = openCaptions.has(task.id);
+    details.querySelector(".js-caption-text").textContent = task.caption;
+  }
+
+  node.querySelector(".js-edit").setAttribute("aria-label", `„${task.text}" bearbeiten`);
+  node.querySelector(".js-del").setAttribute("aria-label", `„${task.text}" löschen`);
+  return node;
+}
+
+function makeBadge(text, variant, icon) {
+  const span = document.createElement("span");
+  span.className = "badge" + (variant ? " " + variant : "");
+  if (icon) {
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("class", "icon icon-sm");
+    svg.style.width = "12px";
+    svg.style.height = "12px";
+    const use = document.createElementNS("http://www.w3.org/2000/svg", "use");
+    use.setAttribute("href", icon);
+    svg.appendChild(use);
+    span.appendChild(svg);
+  }
+  span.appendChild(document.createTextNode(text));
+  return span;
+}
+
+function buildEdit(task) {
+  const node = el.editTpl.content.firstElementChild.cloneNode(true);
+  node.dataset.id = task.id;
+  node.classList.add("p-" + task.priority);
+
+  const text = node.querySelector(".js-e-text");
+  const caption = node.querySelector(".js-e-caption");
+  const planned = node.querySelector(".js-e-planned");
+  const due = node.querySelector(".js-e-due");
+  const prio = node.querySelector(".js-e-prio");
+  let priority = task.priority;
+
+  text.value = task.text;
+  caption.value = task.caption;
+  planned.value = task.planned;
+  due.value = task.due;
+  markPriority(prio, priority);
+
+  prio.addEventListener("click", event => {
+    const button = event.target.closest("button[data-prio]");
+    if (!button) return;
+    priority = button.dataset.prio;
+    markPriority(prio, priority);
+  });
+
+  node.querySelector(".js-cancel").addEventListener("click", () => {
+    editingId = null;
+    render();
+  });
+
+  const form = node.querySelector(".js-form");
+
+  text.addEventListener("keydown", event => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    form.requestSubmit();
+  });
+
+  form.addEventListener("submit", event => {
+    event.preventDefault();
+    const value = text.value.trim();
+    if (!value) { text.focus(); return; }
+    Object.assign(task, {
+      text: value,
+      caption: caption.value.trim(),
+      priority: priority,
+      planned: planned.value,
+      due: due.value
+    });
+    editingId = null;
+    save();
+    if (task.planned) selected = parseKey(task.planned);
+    render();
+  });
+
+  requestAnimationFrame(() => { text.focus(); text.select(); });
+  return node;
+}
+
+function markPriority(group, value) {
+  for (const button of group.querySelectorAll("button[data-prio]")) {
+    button.setAttribute("aria-checked", String(button.dataset.prio === value));
+  }
+}
+
+/* =========================================================
+   Aktionen
+   ========================================================= */
+function showError(message) {
+  el.errorText.textContent = message;
+  el.error.hidden = false;
+}
+
+function clearError() {
+  el.error.hidden = true;
+}
+
+function syncDue() {
+  if (el.due.value && el.planned.value && el.due.value < el.planned.value) {
+    el.due.value = el.planned.value;
+  }
+}
+
+function addTask(event) {
+  event.preventDefault();
+  clearError();
+
+  const text = el.task.value.trim();
+  if (!text) {
+    showError("Das To-Do darf nicht leer sein.");
+    el.task.focus();
+    return;
+  }
+  if (!el.planned.value) {
+    showError("Bitte einen Tag angeben, an dem das To-Do erledigt werden soll.");
+    el.planned.focus();
+    return;
+  }
+  if (el.due.value && el.due.value < el.planned.value) {
+    showError("Das Fälligkeitsdatum liegt vor dem geplanten Tag.");
+    el.due.focus();
+    return;
+  }
+
+  const task = {
+    id: uid(),
+    text: text,
+    caption: el.caption.value.trim(),
+    done: false,
+    priority: newPriority,
+    planned: el.planned.value,
+    due: el.due.value,
+    created: Date.now()
+  };
+  tasks.push(task);
+  save();
+
+  el.task.value = "";
+  el.caption.value = "";
+  el.descWrap.hidden = true;
+  el.descToggle.setAttribute("aria-expanded", "false");
+  el.descToggle.textContent = "+ Beschreibung";
+
+  flashId = task.id;
+  selected = parseKey(task.planned); // zum Tag springen, an dem das To-Do steht
+  filter = filter === "done" ? "all" : filter;
+  syncFilterButtons();
+  render();
+  el.task.focus();
+}
+
+function toggleDone(id, done) {
+  const task = tasks.find(t => t.id === id);
+  if (!task) return;
+  task.done = done;
+  save();
+  render();
+}
+
+function removeTask(id) {
+  const task = tasks.find(t => t.id === id);
+  if (!task) return;
+  snapshot(`„${trim(task.text)}" gelöscht`);
+  tasks = tasks.filter(t => t.id !== id);
+  if (editingId === id) editingId = null;
+  save();
+  render();
+}
+
+function clearAll() {
+  const count = tasks.length;
+  if (!count) return;
+  if (!window.confirm(`Wirklich alle ${count} To-Dos löschen? Das lässt sich direkt danach rückgängig machen.`)) return;
+  snapshot(`${count} To-Dos gelöscht`);
+  tasks = [];
+  editingId = null;
+  save();
+  render();
+}
+
+function trim(text) {
+  return text.length > 28 ? text.slice(0, 27) + "…" : text;
+}
+
+/* ---- Undo ---- */
+function snapshot(message) {
+  undoState = tasks.map(t => ({ ...t }));
+  el.toastMsg.textContent = message;
+  el.toast.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(hideToast, 7000);
+}
+
+function hideToast() {
+  el.toast.hidden = true;
+  undoState = null;
+}
+
+function undo() {
+  if (!undoState) return;
+  tasks = undoState;
+  save();
+  hideToast();
+  render();
+}
+
+/* =========================================================
+   Theme
+   ========================================================= */
+function applyTheme(theme) {
+  const dark = theme === "dark" ||
+    (theme !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  if (theme === "dark" || theme === "light") {
+    document.documentElement.dataset.theme = theme;
+  } else {
+    delete document.documentElement.dataset.theme;
+  }
+  el.themeIcon.firstElementChild.setAttribute("href", dark ? "#i-sun" : "#i-moon");
+}
+
+function storedTheme() {
+  try { return localStorage.getItem(KEY_THEME) || "auto"; } catch { return "auto"; }
+}
+
+/* =========================================================
+   Events
+   ========================================================= */
+el.form.addEventListener("submit", addTask);
+
+el.prioPicker.addEventListener("click", event => {
+  const button = event.target.closest("button[data-prio]");
+  if (!button) return;
+  newPriority = button.dataset.prio;
+  markPriority(el.prioPicker, newPriority);
+});
+
+el.filters.addEventListener("click", event => {
+  const button = event.target.closest("button[data-filter]");
+  if (!button) return;
+  filter = button.dataset.filter;
+  syncFilterButtons();
+  renderList();
+});
+
+function syncFilterButtons() {
+  for (const button of el.filters.querySelectorAll("button[data-filter]")) {
+    button.setAttribute("aria-selected", String(button.dataset.filter === filter));
+  }
+}
+
+el.weekDays.addEventListener("click", event => {
+  const button = event.target.closest("button[data-date]");
+  if (!button) return;
+  selected = parseKey(button.dataset.date);
+  el.planned.value = button.dataset.date;
+  syncDue();
+  render();
+});
+
+$("prevDay").addEventListener("click", () => shiftDay(-1));
+$("nextDay").addEventListener("click", () => shiftDay(1));
+$("prevWeek").addEventListener("click", () => shiftDay(-7));
+$("nextWeek").addEventListener("click", () => shiftDay(7));
+$("todayBtn").addEventListener("click", () => {
+  selected = startOfDay(new Date());
+  el.planned.value = key(selected);
+  syncDue();
+  render();
+});
+
+$("clearAll").addEventListener("click", clearAll);
+el.undoBtn.addEventListener("click", undo);
+
+el.descToggle.addEventListener("click", () => {
+  const open = el.descWrap.hidden;
+  el.descWrap.hidden = !open;
+  el.descToggle.setAttribute("aria-expanded", String(open));
+  el.descToggle.textContent = open ? "– Beschreibung" : "+ Beschreibung";
+  if (open) el.caption.focus();
+});
+
+// Enter im Textfeld speichert, Strg/Cmd + Enter auch aus der Beschreibung heraus.
+el.task.addEventListener("keydown", event => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    el.form.requestSubmit();
+  }
+});
+
+el.caption.addEventListener("keydown", event => {
+  if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+    event.preventDefault();
+    el.form.requestSubmit();
+  }
+});
+
+el.planned.addEventListener("change", () => {
+  if (el.planned.value) {
+    selected = parseKey(el.planned.value);
+    syncDue();
+    render();
+  }
+});
+
+// Ein Listener für die ganze Liste statt eines pro Eintrag.
+el.list.addEventListener("click", event => {
+  const item = event.target.closest(".item");
+  if (!item) return;
+  if (event.target.closest(".js-del")) removeTask(item.dataset.id);
+  else if (event.target.closest(".js-edit")) { editingId = item.dataset.id; render(); }
+});
+
+el.list.addEventListener("change", event => {
+  const item = event.target.closest(".item");
+  if (item && event.target.classList.contains("js-done")) {
+    toggleDone(item.dataset.id, event.target.checked);
+  }
+});
+
+el.list.addEventListener("toggle", event => {
+  const item = event.target.closest(".item");
+  if (!item || !event.target.classList.contains("js-caption")) return;
+  if (event.target.open) openCaptions.add(item.dataset.id);
+  else openCaptions.delete(item.dataset.id);
+}, true);
+
+$("themeBtn").addEventListener("click", () => {
+  const isDark = document.documentElement.dataset.theme
+    ? document.documentElement.dataset.theme === "dark"
+    : window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const next = isDark ? "light" : "dark";
+  try { localStorage.setItem(KEY_THEME, next); } catch { /* egal */ }
+  applyTheme(next);
+});
+
+document.addEventListener("keydown", event => {
+  const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName);
+  if (event.key === "Escape") {
+    if (editingId) { editingId = null; render(); }
+    else if (typing) event.target.blur();
+    return;
+  }
+  if (typing || event.ctrlKey || event.metaKey || event.altKey) return;
+  if (event.key === "n") { event.preventDefault(); el.task.focus(); }
+  if (event.key === "t") { $("todayBtn").click(); }
+  if (event.key === "ArrowLeft") shiftDay(-1);
+  if (event.key === "ArrowRight") shiftDay(1);
+});
+
+// Wenn die Seite über Mitternacht offen bleibt, stimmen „heute"/„überfällig" sonst nicht mehr.
+setInterval(() => {
+  const today = key(startOfDay(new Date()));
+  if (today !== render.lastToday) {
+    render.lastToday = today;
+    render();
+  }
+}, 60000);
+
+/* =========================================================
+   Start
+   ========================================================= */
+applyTheme(storedTheme());
+el.planned.value = key(selected);
+el.due.value = key(new Date(selected.getTime() + DAY_MS));
+markPriority(el.prioPicker, newPriority);
+syncFilterButtons();
+render.lastToday = key(startOfDay(new Date()));
+render();
+</script>
 </body>
 </html>
