@@ -2,34 +2,94 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>To-Do Liste</title>
     <link href="styles/style.css" rel="stylesheet">
     <script defer src="scripts/script.js"></script>
 </head>
-<body style="background-color: white;">
-    <h1>To-Do's für <span id="time"></span></h1>
-    <div class="ToDo">
+<body>
+    <main class="card">
+        <h1>To-Do&#39;s für <span id="time"></span></h1>
 
-        <button class="previoustodo" onclick="previousTodo()" title="To-Dos für den vorherigen Tag"><img src="images/pfeillinks.png" alt="Tag-" width="10px" height="10px"></img></button>
-        <button class="weekback" onclick="weekBack()" title="7 Tage zurück">-7d</button>
-        <input class="text" id="task" title="To-Do hier eingeben" style="color: rgb(50, 50, 50);" placeholder=" neues To-Do">
-        <textarea id="caption" placeholder="Beschreibung"></textarea>
-        <select id="priority" title="Priorität ändern">
-            <option title="Nicht wichtig (GRÜN)" value="green" style="color: #00b400;">Nicht wichtig</option>
-            <option title="Mittel wichtig (ORANGE)"value="orange" style="color: #ff9100;">Mittel wichtig</option>
-            <option title="Sehr wichtig (ROT)" value="red" style="color: #d80000;">Sehr Wichtig</option>
-        </select>
-        <label for="fällig">Fällig am</label>
-        <input type="date" class="fällig" id="fällig" title="Fällig am...">
-        <label for="geplant"> Geplant am</label>
-        <input type="date" class="geplant" id="geplant" title="Geplant am...">
-        <button onclick="addTask()" class="add2" title="Hinzufügen"><div class="add"><img src="images/add.png" alt="+" width="10px" height="10px"></div></img></button>
-        <button class="todaystodo" onclick="todaysTodo()" title="Springe zu deinen Heutigen ToDos">Heute</button>
-        <button class="weeknext" onclick="weekNext()" title="7 Tage vor">+7d</button>
-        <button class="nexttodo" onclick="nextTodo()" title="To-Dos für den nächsten Tag"><img src="images/pfeilrechts.png" alt="Tag+" width="10px" height="10px"></button>
-        <ul id="list"></ul>
-        <button onclick="clearAll()" class="clear" title="alle ToDo's Löschen"><img src="images/Müll.png" alt="🚮" width="32px" height="30px"></img></button>
-        
-    </div>
+        <section class="nav" aria-label="Tag wechseln">
+            <button type="button" id="prevDay" class="icon-btn" title="To-Dos für den vorherigen Tag">
+                <img src="images/pfeillinks.png" alt="" width="10" height="10">
+                <span class="sr-only">Vorheriger Tag</span>
+            </button>
+            <button type="button" id="weekBack" class="btn" title="7 Tage zurück">-7d</button>
+            <button type="button" id="today" class="btn" title="Springe zu deinen heutigen To-Dos">Heute</button>
+            <button type="button" id="weekNext" class="btn" title="7 Tage vor">+7d</button>
+            <button type="button" id="nextDay" class="icon-btn" title="To-Dos für den nächsten Tag">
+                <img src="images/pfeilrechts.png" alt="" width="10" height="10">
+                <span class="sr-only">Nächster Tag</span>
+            </button>
+        </section>
+
+        <form id="taskForm" class="form" novalidate>
+            <div class="row">
+                <label class="grow" for="task">
+                    <span class="sr-only">Neues To-Do</span>
+                    <input id="task" name="task" type="text" autocomplete="off"
+                           placeholder="Neues To-Do" title="To-Do hier eingeben" maxlength="200" required>
+                </label>
+                <label for="priority">Priorität</label>
+                <select id="priority" name="priority" title="Priorität ändern">
+                    <option value="green">Nicht wichtig</option>
+                    <option value="orange">Mittel wichtig</option>
+                    <option value="red">Sehr wichtig</option>
+                </select>
+            </div>
+
+            <div class="row">
+                <label class="grow" for="caption">
+                    <span class="sr-only">Beschreibung</span>
+                    <textarea id="caption" name="caption" rows="1" maxlength="1000"
+                              placeholder="Beschreibung (optional)"></textarea>
+                </label>
+            </div>
+
+            <div class="row">
+                <label for="planned">Geplant am</label>
+                <input type="date" id="planned" name="planned" title="Geplant am ...">
+                <label for="due">Fällig am</label>
+                <input type="date" id="due" name="due" title="Fällig am ...">
+                <button type="submit" class="add" title="Hinzufügen">
+                    <img src="images/add.png" alt="" width="10" height="10">
+                    <span>Hinzufügen</span>
+                </button>
+            </div>
+
+            <p id="error" class="error" role="alert" hidden></p>
+        </form>
+
+        <p id="summary" class="summary" aria-live="polite"></p>
+
+        <ul id="list" class="list"></ul>
+
+        <p id="empty" class="empty" hidden>Für diesen Tag ist nichts geplant.</p>
+
+        <button type="button" id="clearAll" class="clear" title="Alle To-Dos löschen">
+            <img src="images/Müll.png" alt="" width="32" height="30">
+            <span class="sr-only">Alle To-Dos löschen</span>
+        </button>
+    </main>
+
+    <template id="taskTemplate">
+        <li class="item">
+            <div class="item-main">
+                <input type="checkbox" class="item-done" title="Erledigt">
+                <span class="item-text"></span>
+                <button type="button" class="del" title="To-Do löschen">✖️</button>
+            </div>
+            <div class="item-meta">
+                <span class="meta-planned"></span>
+                <span class="meta-due"></span>
+            </div>
+            <details class="item-caption" hidden>
+                <summary>Beschreibung</summary>
+                <p class="caption-text"></p>
+            </details>
+        </li>
+    </template>
 </body>
 </html>
